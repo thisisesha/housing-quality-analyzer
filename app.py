@@ -294,11 +294,9 @@ elif option == "Seasonality in Property Sales":
 
     df_season = df.copy()
     df_season = df_season.dropna(subset=["month_sold", "SALE_PRC"])
-
-    # --- Convert to integer month if needed ---
     df_season["month_sold"] = df_season["month_sold"].astype(int)
 
-    # --- Month labels ---
+    # Month name mapping
     month_labels = {
         1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr",
         5: "May", 6: "Jun", 7: "Jul", 8: "Aug",
@@ -306,45 +304,54 @@ elif option == "Seasonality in Property Sales":
     }
     df_season["month_label"] = df_season["month_sold"].map(month_labels)
 
-    # --- Summary statistics ---
-    st.subheader("📊 Sale Price Summary by Month")
-    month_stats = df_season.groupby("month_label")["SALE_PRC"].agg(["mean", "median", "std"]).reset_index()
-    month_stats.columns = ["Month", "Mean Price", "Median Price", "Std Dev"]
-    month_stats["Month"] = pd.Categorical(month_stats["Month"], categories=month_labels.values(), ordered=True)
-    month_stats = month_stats.sort_values("Month")
-    st.dataframe(month_stats, use_container_width=True)
+    # Group by month
+    month_stats = df_season.groupby("month_sold")["SALE_PRC"].agg(["mean", "median", "std"]).reset_index()
+    month_stats.columns = ["month_sold", "Mean", "Median", "Std"]
+    month_stats["Month"] = month_stats["month_sold"].map(month_labels)
 
-    # --- Boxplot: Monthly Sale Prices ---
-    st.subheader("📦 Boxplot of Sale Prices by Month")
+    # --- KMeans Clustering on monthly sale stats ---
+    kmeans = KMeans(n_clusters=3, random_state=42)
+    month_stats["SeasonCluster"] = kmeans.fit_predict(month_stats[["Mean", "Median", "Std"]])
+
+    # Attach cluster info back to main DataFrame
+    df_season = df_season.merge(month_stats[["month_sold", "SeasonCluster"]], on="month_sold", how="left")
+
+    # --- Display cluster-labeled table ---
+    st.subheader("📊 Monthly Sale Stats with Seasonal Clustering")
+    month_stats_display = month_stats.copy()
+    month_stats_display["Month"] = pd.Categorical(month_stats_display["Month"], categories=month_labels.values(), ordered=True)
+    month_stats_display = month_stats_display.sort_values("Month")
+    st.dataframe(month_stats_display[["Month", "Mean", "Median", "Std", "SeasonCluster"]], use_container_width=True)
+
+    # --- Boxplot with cluster coloring ---
+    st.subheader("📦 Sale Price Distribution by Month")
     fig_box = px.box(
-        df_season, x="month_label", y="SALE_PRC",
+        df_season,
+        x="month_label", y="SALE_PRC", color="SeasonCluster",
         labels={"month_label": "Month", "SALE_PRC": "Sale Price"},
-        title="Distribution of Sale Prices by Month"
+        title="Sale Price Distribution by Month with Seasonal Clustering"
     )
     st.plotly_chart(fig_box, use_container_width=True)
 
     # --- Line plot: Mean Sale Price by Month ---
-    st.subheader("📈 Average Sale Price by Month")
-    mean_prices = df_season.groupby("month_label")["SALE_PRC"].mean().reset_index()
+    st.subheader("📈 Mean Sale Price Trend by Month")
+    mean_prices = df_season.groupby(["month_label", "SeasonCluster"])["SALE_PRC"].mean().reset_index()
     mean_prices["month_label"] = pd.Categorical(mean_prices["month_label"], categories=month_labels.values(), ordered=True)
     mean_prices = mean_prices.sort_values("month_label")
 
     fig_line = px.line(
-        mean_prices, x="month_label", y="SALE_PRC", markers=True,
+        mean_prices, x="month_label", y="SALE_PRC", color="SeasonCluster", markers=True,
         labels={"month_label": "Month", "SALE_PRC": "Mean Sale Price"},
-        title="Mean Sale Price Trend Over the Year"
+        title="Mean Sale Price Trend by Clustered Months"
     )
     st.plotly_chart(fig_line, use_container_width=True)
 
     # --- Hypothesis Test: ANOVA ---
-    st.subheader("🧪 Statistical Test: Do Prices Differ by Month?")
-    from scipy.stats import f_oneway
-
-    # Collect price lists for each month
+    st.subheader("🧪 Statistical Test: Do Sale Prices Differ by Month?")
+    
     price_lists = [df_season[df_season["month_sold"] == m]["SALE_PRC"] for m in range(1, 13)]
-
-    # Run ANOVA
     f_stat, p_value = f_oneway(*price_lists)
+
     st.write(f"**F-Statistic:** {f_stat:.2f}")
     st.write(f"**p-value:** {p_value:.4f}")
 
