@@ -280,6 +280,12 @@ elif option == "Effects on Market Value":
 # --- Feature 3: Age-Related Depreciation Trends ---
 elif option == "Age-Related Depreciation Trends":
     st.header("🏚️ Age-Related Depreciation Trends in Property Pricing")
+    st.write(
+        "In this section, we investigate how a property's age correlates with its sale price. "
+        "By grouping homes into age buckets (New, Moderate, Old, Vintage), visualizing their "
+        "price distributions, and fitting a regression line, we can quantify depreciation "
+        "or appreciation trends over time."
+    )
 
     df_age = df.copy()
     df_age = df_age.dropna(subset=["age", "SALE_PRC"])
@@ -297,7 +303,7 @@ elif option == "Age-Related Depreciation Trends":
     
     df_age["age_bucket"] = df_age["age"].apply(categorize_age)
 
-    # --- Summary statistics by age bucket ---
+    # --- Summarising statistics by age bucket ---
     st.subheader("📊 Summary Stats by Age Bucket")
     age_summary = df_age.groupby("age_bucket")["SALE_PRC"].agg(["mean", "median", "std"]).reset_index()
     age_summary.columns = ["Age Bucket", "Mean Price", "Median Price", "Std Dev"]
@@ -352,6 +358,11 @@ elif option == "Age-Related Depreciation Trends":
 # --- Feature 4: Seasonality in Property Sales ---
 elif option == "Seasonality in Property Sales":
     st.header("📅 Seasonality in Property Sales")
+    st.write(
+        "This section explores how sale prices fluctuate throughout the year. "
+        "We summarize monthly sale price statistics, visualize distributions and trends, "
+        "test for significant differences, and cluster months into seasonal groups."
+    )
 
     df_season = df.copy()
     df_season = df_season.dropna(subset=["month_sold", "SALE_PRC"])
@@ -365,7 +376,7 @@ elif option == "Seasonality in Property Sales":
     }
     df_season["month_label"] = df_season["month_sold"].map(month_labels)
 
-    # Group by month
+    # Grouping by month
     month_stats = df_season.groupby("month_sold")["SALE_PRC"].agg(["mean", "median", "std"]).reset_index()
     month_stats.columns = ["month_sold", "Mean", "Median", "Std"]
     month_stats["Month"] = month_stats["month_sold"].map(month_labels)
