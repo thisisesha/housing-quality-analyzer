@@ -10,18 +10,18 @@ import plotly.express as px
 from sklearn.metrics import r2_score
 from scipy.stats import f_oneway
 
-# --- Page config ---
+# --- Page config setting in Streamlit ---
 st.set_page_config(page_title="Miami Housing Quality", layout="wide")
 
-# --- Load dataset ---
+# --- Loading dataset ---
 @st.cache_data
 def load_data():
-    df = pd.read_csv("miami-housing.csv")  # Replace with your actual CSV file name
+    df = pd.read_csv("miami-housing.csv")  
     return df
 
 df = load_data()
 
-# --- Sidebar navigation ---
+# --- Sidebar navigation code ---
 st.sidebar.title("🏡 Housing Quality App")
 option = st.sidebar.radio("Select a feature:", [
     "Neighborhood Quality Index",
@@ -33,122 +33,159 @@ option = st.sidebar.radio("Select a feature:", [
 # --- Feature 1: Neighborhood Quality Index ---
 if option == "Neighborhood Quality Index":
     st.header("📊 Neighborhood Quality Index (NQI)")
-    st.write("This feature visualizes a composite quality score per ZIP code based on housing features.")
-    
-    df_nqi = df.copy()
+    st.write("This feature combines property size, price, and proximity to key amenities into a single Neighborhood Quality Index, and also explores how distance to amenities affects sale price.")
 
-    # Drop rows with missing relevant fields
+    # Data cleaning - Making a working copy and dropping missing values.
+    df_nqi = df.copy()
     df_nqi = df_nqi.dropna(subset=[
         "SALE_PRC", "LND_SQFOOT", "OCEAN_DIST", "RAIL_DIST", "CNTR_DIST", "HWY_DIST"
     ])
 
-    # Normalize features
-    def normalize(col):
-        return (col - col.min()) / (col.max() - col.min())
+    # --- Part A: Impact of Proximity to Amenities on Sale Price ---
+    st.subheader("🔍 Impact of Proximity to Amenities on Sale Price")
+    
+    # 1. Descriptive statistics
+    stats = {
+        "Ocean Distance": df_nqi["OCEAN_DIST"],
+        "Highway Distance": df_nqi["HWY_DIST"],
+        "City Center Distance": df_nqi["CNTR_DIST"],
+        "Sale Price": df_nqi["SALE_PRC"]
+    }
+    desc = []
+    for name, col in stats.items():
+        desc.append({
+            "Feature": name,
+            "Mean": f"{col.mean():,.2f}",
+            "Median": f"{col.median():,.2f}",
+            "Std Dev": f"{col.std():,.2f}"
+        })
 
-    def inverse_normalize(col):  # smaller distance is better
-        return 1 - normalize(col)
+    st.write("**Units:** Sale Price in USD ($), Distances in meters, Land Area in ft²")
+    st.table(pd.DataFrame(desc))
 
-    df_nqi["price_inv_norm"] = inverse_normalize(df_nqi["SALE_PRC"])
-    df_nqi["land_norm"] = normalize(df_nqi["LND_SQFOOT"])
-    df_nqi["ocean_inv_norm"] = inverse_normalize(df_nqi["OCEAN_DIST"])
-    df_nqi["rail_inv_norm"] = inverse_normalize(df_nqi["RAIL_DIST"])
-    df_nqi["center_inv_norm"] = inverse_normalize(df_nqi["CNTR_DIST"])
-    df_nqi["highway_inv_norm"] = inverse_normalize(df_nqi["HWY_DIST"])
+    # 2. Correlations
+    correlations = {
+        "Ocean Distance": df_nqi["OCEAN_DIST"].corr(df_nqi["SALE_PRC"]),
+        "Highway Distance": df_nqi["HWY_DIST"].corr(df_nqi["SALE_PRC"]),
+        "City Center Distance": df_nqi["CNTR_DIST"].corr(df_nqi["SALE_PRC"])
+    }
+    corr_df = pd.DataFrame([
+        {"Feature": f, "Correlation with Price": round(c, 3)}
+        for f, c in correlations.items()
+    ])
+    st.table(corr_df)
 
-    # Calculate NQI score
+    # 3. Correlation heatmap
+    fig, ax = plt.subplots(figsize=(6, 5))
+    corr_matrix = df_nqi[["SALE_PRC", "OCEAN_DIST", "HWY_DIST", "CNTR_DIST"]].corr()
+    sns.heatmap(corr_matrix, annot=True, cmap="coolwarm", center=0, ax=ax)
+    ax.set_title("Correlation: Sale Price vs. Distances")
+    st.pyplot(fig)
+
+    # 4. Scatter plots
+    st.subheader("📈 Scatter Plots: Distance vs. Sale Price")
+    for col, label in [("OCEAN_DIST", "Ocean Distance"),
+                       ("HWY_DIST", "Highway Distance"),
+                       ("CNTR_DIST", "City Center Distance")]:
+        fig_scatter = px.scatter(
+            df_nqi, x=col, y="SALE_PRC", trendline="ols",
+            trendline_color_override="red",
+            labels={col: label, "SALE_PRC": "Sale Price ($)"},
+            title=f"{label} vs. Sale Price"
+        )
+        st.plotly_chart(fig_scatter, use_container_width=True)
+
+    # --- Part B: Computing and Visualizing NQI ---
+
+    # Normalizing features
+    def normalize(col): return (col - col.min()) / (col.max() - col.min())
+    def inv_norm(col): return 1 - normalize(col)
+
+    df_nqi["price_inv_norm"]   = inv_norm(df_nqi["SALE_PRC"])
+    df_nqi["land_norm"]        = normalize(df_nqi["LND_SQFOOT"])
+    df_nqi["ocean_inv_norm"]   = inv_norm(df_nqi["OCEAN_DIST"])
+    df_nqi["rail_inv_norm"]    = inv_norm(df_nqi["RAIL_DIST"])
+    df_nqi["center_inv_norm"]  = inv_norm(df_nqi["CNTR_DIST"])
+    df_nqi["highway_inv_norm"] = inv_norm(df_nqi["HWY_DIST"])
+
     df_nqi["NQI"] = (
         0.25 * df_nqi["land_norm"] +
         0.25 * df_nqi["price_inv_norm"] +
         0.15 * df_nqi["ocean_inv_norm"] +
-        0.1  * df_nqi["rail_inv_norm"] +
+        0.10 * df_nqi["rail_inv_norm"] +
         0.15 * df_nqi["center_inv_norm"] +
-        0.1  * df_nqi["highway_inv_norm"]
+        0.10 * df_nqi["highway_inv_norm"]
     )
 
-    # Cluster properties based on coordinates
+    # Clustering by location
     coords = df_nqi[["LATITUDE", "LONGITUDE"]]
     kmeans = KMeans(n_clusters=10, random_state=42)
     df_nqi["RegionCluster"] = kmeans.fit_predict(coords)
 
-    # Compute average NQI per cluster
-    region_nqi = df_nqi.groupby("RegionCluster")["NQI"].mean().sort_values(ascending=False).reset_index()
-    region_nqi["NQI"] = region_nqi["NQI"].round(4)
+    region_nqi = (
+        df_nqi.groupby("RegionCluster")["NQI"]
+        .mean().round(4)
+        .sort_values(ascending=False)
+        .reset_index()
+    )
 
-    # --- UI Enhancements ---
-
-    st.subheader("Top 10 Regional Clusters by Neighborhood Quality Index")
-
-    # Expand DataFrame display width
-    st.markdown("""
-        <style>
-        .dataframe-container {
-            width: 100% !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-    # Show wider top-10 table
-    # Add labeled index as "Sr. No" without adding a new column
+    # Table with Sr. No index
     region_nqi_display = region_nqi.head(10).reset_index(drop=True)
-    region_nqi_display.index += 1  # Start from 1 instead of 0
+    region_nqi_display.index += 1
     region_nqi_display.index.name = "Sr. No"
 
+    st.subheader("📊 Top 10 Regional Clusters by NQI")
+    st.markdown(
+        "<style>.dataframe-container {width:100% !important;}</style>",
+        unsafe_allow_html=True
+    )
     st.dataframe(region_nqi_display, use_container_width=True)
 
-    # Custom bar chart using Altair
-    st.subheader("📈 Bar Chart of Top 10 Regional Clusters by NQI")
-
-    top10_chart = alt.Chart(region_nqi.head(10)).mark_bar(color='#3182bd').encode(
-        x=alt.X("RegionCluster:N", title="Region Cluster"),
-        y=alt.Y("NQI:Q", title="Average Neighborhood Quality Index"),
-        tooltip=["RegionCluster", "NQI"]
-    ).properties(
-        width=600,
-        height=400
+    # Altair bar chart
+    st.subheader("📈 Bar Chart of Top 10 Clusters by NQI")
+    chart_data = region_nqi.head(10).assign(ClusterID=lambda d: d.RegionCluster + 1)
+    bar = (
+        alt.Chart(chart_data)
+        .mark_bar(color="#3182bd")
+        .encode(
+            x=alt.X("ClusterID:O", title="Region Cluster (1–10)"),
+            y=alt.Y("NQI:Q", title="Avg. NQI"),
+            tooltip=["ClusterID", "NQI"]
+        )
     )
+    labels = bar.mark_text(dy=-5).encode(text="NQI:Q")
+    st.altair_chart(bar + labels, use_container_width=True)
 
-    text_labels = alt.Chart(region_nqi.head(10)).mark_text(
-        align='center',
-        baseline='bottom',
-        dy=-5
-    ).encode(
-        x=alt.X("RegionCluster:N"),
-        y=alt.Y("NQI:Q"),
-        text=alt.Text("NQI:Q")
+    # Map visualization
+    cluster_centroids = (
+        df_nqi.groupby("RegionCluster")[["LATITUDE", "LONGITUDE"]]
+        .mean().reset_index()
+        .merge(region_nqi, on="RegionCluster")
     )
-
-    st.altair_chart(top10_chart + text_labels, use_container_width=True)
-
-    # --- Map Visualization ---
-
-    st.subheader("🗺️ Visualizing Regional Clusters on the Map")
-
-    cluster_centroids = df_nqi.groupby("RegionCluster")[["LATITUDE", "LONGITUDE"]].mean().reset_index()
-    cluster_nqi = df_nqi.groupby("RegionCluster")["NQI"].mean().reset_index()
-    cluster_centroids = cluster_centroids.merge(cluster_nqi, on="RegionCluster")
     cluster_centroids["NQI"] = cluster_centroids["NQI"].round(4)
 
-    st.pydeck_chart(pdk.Deck(
-        map_style="mapbox://styles/mapbox/light-v9",
-        initial_view_state=pdk.ViewState(
-            latitude=cluster_centroids["LATITUDE"].mean(),
-            longitude=cluster_centroids["LONGITUDE"].mean(),
-            zoom=10,
-            pitch=0,
-        ),
-        layers=[
-            pdk.Layer(
-                "ScatterplotLayer",
-                data=cluster_centroids,
-                get_position='[LONGITUDE, LATITUDE]',
-                get_fill_color='[200, 30, 0, 160]',
-                get_radius=800,
-                pickable=True,
+    st.subheader("🗺️ Regional Clusters Map")
+    st.pydeck_chart(
+        pdk.Deck(
+            map_style="mapbox://styles/mapbox/light-v9",
+            initial_view_state=pdk.ViewState(
+                latitude=cluster_centroids.LATITUDE.mean(),
+                longitude=cluster_centroids.LONGITUDE.mean(),
+                zoom=10
             ),
-        ],
-        tooltip={"text": "Cluster {RegionCluster}\nAvg NQI: {NQI}"}
-    ))
+            layers=[
+                pdk.Layer(
+                    "ScatterplotLayer",
+                    data=cluster_centroids,
+                    get_position="[LONGITUDE, LATITUDE]",
+                    get_fill_color="[200, 30, 0, 160]",
+                    get_radius=800,
+                    pickable=True
+                ),
+            ],
+            tooltip={"text": "Cluster {RegionCluster}\nAvg NQI: {NQI}"}
+        )
+    )
 
 
 # --- Feature 2: Effects on Market Value ---
@@ -179,6 +216,7 @@ elif option == "Effects on Market Value":
     for label, col in scatter_cols.items():
         fig = px.scatter(
             df_value, x=col, y="SALE_PRC", trendline="ols",
+            trendline_color_override="red",
             title=f"{label} vs Sale Price",
             labels={col: label, "SALE_PRC": "Sale Price ($)"}
         )
