@@ -7,7 +7,7 @@ from sklearn.linear_model import LinearRegression
 import pydeck as pdk
 import altair as alt
 import plotly.express as px
-from sklearn.metrics import r2_score
+from sklearn.metrics import r2_score, mean_squared_error
 from scipy.stats import f_oneway
 
 # --- Page config setting in Streamlit ---
@@ -76,7 +76,7 @@ if option == "Neighborhood Quality Index":
     st.table(corr_df)
 
     # 3. Correlation heatmap
-    fig, ax = plt.subplots(figsize=(6, 5))
+    fig, ax = plt.subplots(figsize=(4, 4))
     corr_matrix = df_nqi[["SALE_PRC", "OCEAN_DIST", "HWY_DIST", "CNTR_DIST"]].corr()
     sns.heatmap(corr_matrix, annot=True, cmap="coolwarm", center=0, ax=ax)
     ax.set_title("Correlation: Sale Price vs. Distances")
@@ -191,67 +191,90 @@ if option == "Neighborhood Quality Index":
 # --- Feature 2: Effects on Market Value ---
 elif option == "Effects on Market Value":
     st.header("📈 Effects of Property Characteristics on Market Value")
+    st.write(
+        "In this section, we explore how three key features—**total living area**, **land size**, "
+        "and **structure quality**—correlate with sale price, and build a regression model to "
+        "quantify their individual impacts."
+    )
 
-    df_value = df.copy()
-    st.write("We analyze how living area, land size, and structure quality impact sale price.")
+    # 1. Preparing and cleaning data
+    df_value = df.dropna(subset=["SALE_PRC", "TOT_LVG_AREA", "LND_SQFOOT", "structure_quality"])
+    X = df_value[["TOT_LVG_AREA", "LND_SQFOOT", "structure_quality"]]
+    y = df_value["SALE_PRC"]
 
-    # Drop rows with missing values in relevant columns
-    df_value = df_value.dropna(subset=["SALE_PRC", "TOT_LVG_AREA", "LND_SQFOOT", "structure_quality"])
+    # 2. Correlation heatmap
+    st.subheader("🔗 Correlation Heatmap")
+    corr_matrix = df_value[["SALE_PRC", "TOT_LVG_AREA", "LND_SQFOOT", "structure_quality"]].corr()
+    fig_corr, ax = plt.subplots(figsize=(4, 4))
+    sns.heatmap(corr_matrix, annot=True, cmap="coolwarm", fmt=".2f", square=True, ax=ax)
+    ax.set_title("Correlation Matrix")
+    st.pyplot(fig_corr)
 
-    # --- Correlation Matrix ---
-    st.subheader("🔗 Correlation Analysis")
-    corr_cols = ["SALE_PRC", "TOT_LVG_AREA", "LND_SQFOOT", "structure_quality"]
-    corr_matrix = df_value[corr_cols].corr()
-
-    st.dataframe(corr_matrix.style.background_gradient(cmap="Blues"), use_container_width=True)
-
-    # --- Scatter Plots ---
-    st.subheader("📊 Scatterplots")
+    # 3. Scatterplots
+    st.subheader("📊 Scatterplots with Regression Lines")
     scatter_cols = {
         "Total Living Area": "TOT_LVG_AREA",
         "Land Square Footage": "LND_SQFOOT",
         "Structure Quality": "structure_quality"
     }
-
     for label, col in scatter_cols.items():
-        fig = px.scatter(
-            df_value, x=col, y="SALE_PRC", trendline="ols",
+        fig_scatter = px.scatter(
+            df_value,
+            x=col, y="SALE_PRC",
+            trendline="ols",
             trendline_color_override="red",
-            title=f"{label} vs Sale Price",
-            labels={col: label, "SALE_PRC": "Sale Price ($)"}
+            labels={col: label, "SALE_PRC": "Sale Price ($)"},
+            title=f"{label} vs Sale Price"
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig_scatter, use_container_width=True)
 
-    # --- Multiple Linear Regression ---
-    st.subheader("📉 Multiple Linear Regression")
-    X = df_value[["TOT_LVG_AREA", "LND_SQFOOT", "structure_quality"]]
-    y = df_value["SALE_PRC"]
-
+    # 4. Fit regression model
+    st.subheader("📉 Multiple Linear Regression Results")
     model = LinearRegression()
     model.fit(X, y)
+    y_pred = model.predict(X)
 
-    # Create readable feature labels
+    # 5. Coefficients table
     feature_labels = {
         "TOT_LVG_AREA": "Total Living Area",
         "LND_SQFOOT": "Land Square Footage",
         "structure_quality": "Structure Quality"
     }
-
     coef_df = pd.DataFrame({
-        "Feature": [feature_labels[col] for col in X.columns],
+        "Feature": [feature_labels[c] for c in X.columns],
         "Coefficient": model.coef_,
         "Interpretation": [
-            "Price increases by ${:,.2f} per sq ft of living area".format(model.coef_[0]),
-            "Price increases by ${:,.2f} per sq ft of land".format(model.coef_[1]),
-            "Price increases by ${:,.2f} per quality point".format(model.coef_[2])
+            f"Price increases by ${model.coef_[0]:,.2f} per sq ft living area",
+            f"Price increases by ${model.coef_[1]:,.2f} per sq ft land",
+            f"Price increases by ${model.coef_[2]:,.2f} per quality point"
         ]
     })
-
     st.dataframe(coef_df, use_container_width=True)
 
-    r2 = model.score(X, y)
-    st.write(f"**R² Score:** {r2:.3f} — this indicates that the model explains about {r2*100:.1f}% of the variance in sale prices.")
-    
+    # 6. Intercept, MSE, R²
+    intercept = model.intercept_
+    mse = mean_squared_error(y, y_pred)
+    r2 = r2_score(y, y_pred)
+    st.write(f"**Intercept:** ${intercept:,.2f}")
+    st.write(f"**Mean Squared Error (MSE):** {mse:,.2f}")
+    st.write(f"**R² Score:** {r2:.3f}  (Explains {r2*100:.1f}% of variance)")
+
+    # 7. Actual vs Predicted plot
+    st.subheader("🔍 Actual vs Predicted Sale Prices")
+    fig_ap = px.scatter(
+        x=y, y=y_pred,
+        labels={"x": "Actual Sale Price ($)", "y": "Predicted Sale Price ($)"},
+        title="Actual vs Predicted Sale Prices"
+    )
+    # adding perfect-fit line
+    fig_ap.add_shape(
+        type="line",
+        x0=y.min(), y0=y.min(),
+        x1=y.max(), y1=y.max(),
+        line=dict(color="green", dash="dash")
+    )
+    fig_ap.update_traces(marker=dict(color="blue", opacity=0.6))
+    st.plotly_chart(fig_ap, use_container_width=True)
     
 
 # --- Feature 3: Age-Related Depreciation Trends ---
