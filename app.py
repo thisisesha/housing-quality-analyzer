@@ -113,14 +113,14 @@ elif option == "Neighborhood Quality Index":
     fig, ax = plt.subplots(figsize=(4, 4))
     corr_matrix = df_nqi[["SALE_PRC", "OCEAN_DIST", "HWY_DIST", "CNTR_DIST"]].corr()
     sns.heatmap(corr_matrix, annot=True, cmap="coolwarm", center=0, ax=ax)
-    ax.set_title("Correlation: Sale Price vs. Distances")
+    ax.set_title("Correlation: Sale Price ($) vs. Distances (m)")
     st.pyplot(fig)
 
     # 4. Scatter plots
     st.subheader("📈 Scatter Plots: Distance vs. Sale Price")
-    for col, label in [("OCEAN_DIST", "Ocean Distance"),
-                       ("HWY_DIST", "Highway Distance"),
-                       ("CNTR_DIST", "City Center Distance")]:
+    for col, label in [("OCEAN_DIST", "Ocean Distance (m)"),
+                       ("HWY_DIST", "Highway Distance (m)"),
+                       ("CNTR_DIST", "City Center Distance (m)")]:
         fig_scatter = px.scatter(
             df_nqi, x=col, y="SALE_PRC", trendline="ols",
             trendline_color_override="red",
@@ -247,9 +247,9 @@ elif option == "Effects on Market Value":
     # 3. Scatterplots
     st.subheader("📊 Scatterplots with Regression Lines")
     scatter_cols = {
-        "Total Living Area": "TOT_LVG_AREA",
-        "Land Square Footage": "LND_SQFOOT",
-        "Structure Quality": "structure_quality"
+        "Total Living Area (sq ft)": "TOT_LVG_AREA",
+        "Land Square Footage (sq ft)": "LND_SQFOOT",
+        "Structure Quality (rank)": "structure_quality"
     }
     for label, col in scatter_cols.items():
         fig_scatter = px.scatter(
@@ -270,9 +270,9 @@ elif option == "Effects on Market Value":
 
     # 5. Coefficients table
     feature_labels = {
-        "TOT_LVG_AREA": "Total Living Area",
-        "LND_SQFOOT": "Land Square Footage",
-        "structure_quality": "Structure Quality"
+        "TOT_LVG_AREA": "Total Living Area (sq ft)",
+        "LND_SQFOOT": "Land Square Footage (sq ft)",
+        "structure_quality": "Structure Quality (rank)"
     }
     coef_df = pd.DataFrame({
         "Feature": [feature_labels[c] for c in X.columns],
@@ -340,14 +340,14 @@ elif option == "Age-Related Depreciation Trends":
     # --- Summarising statistics by age bucket ---
     st.subheader("📊 Summary Stats by Age Bucket")
     age_summary = df_age.groupby("age_bucket")["SALE_PRC"].agg(["mean", "median", "std"]).reset_index()
-    age_summary.columns = ["Age Bucket", "Mean Price", "Median Price", "Std Dev"]
+    age_summary.columns = ["Age Bucket", "Mean Price ($)", "Median Price ($)", "Std Dev ($)"]
     st.dataframe(age_summary, use_container_width=True)
 
     # --- Scatter Plot: Age vs Sale Price ---
     st.subheader("🔍 Scatter Plot: Age vs Sale Price")
     fig1 = px.scatter(
         df_age, x="age", y="SALE_PRC", opacity=0.5,
-        trendline="ols", labels={"SALE_PRC": "Sale Price", "age": "Property Age"},
+        trendline="ols", labels={"SALE_PRC": "Sale Price ($)", "age": "Property Age"},
         title="Scatter Plot with Linear Regression"
     )
     st.plotly_chart(fig1, use_container_width=True)
@@ -356,7 +356,7 @@ elif option == "Age-Related Depreciation Trends":
     st.subheader("📦 Boxplot: Age Bucket vs Sale Price")
     fig2 = px.box(
         df_age, x="age_bucket", y="SALE_PRC",
-        labels={"SALE_PRC": "Sale Price", "age_bucket": "Age Category"},
+        labels={"SALE_PRC": "Sale Price ($)", "age_bucket": "Age Category"},
         title="Boxplot of Sale Price by Age Category"
     )
     st.plotly_chart(fig2, use_container_width=True)
@@ -367,7 +367,7 @@ elif option == "Age-Related Depreciation Trends":
     fig3 = px.line(
         age_mean, x="age_bucket", y="SALE_PRC",
         markers=True,
-        labels={"age_bucket": "Age Category", "SALE_PRC": "Mean Sale Price"},
+        labels={"age_bucket": "Age Category", "SALE_PRC": "Mean Sale Price ($)"},
         title="Line Graph of Mean Price by Age Group"
     )
     st.plotly_chart(fig3, use_container_width=True)
