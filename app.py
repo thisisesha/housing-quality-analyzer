@@ -24,14 +24,48 @@ df = load_data()
 # --- Sidebar navigation code ---
 st.sidebar.title("🏡 Housing Quality App")
 option = st.sidebar.radio("Select a feature:", [
+    "Home",
     "Neighborhood Quality Index",
     "Effects on Market Value",
     "Age-Related Depreciation Trends",
     "Seasonality in Property Sales"
 ])
 
+# --- Home page ---
+if option == "Home":
+    
+    # — Main title + subtitle —
+    st.title("🏠 Welcome to the Miami Housing Quality Analyzer!")
+    st.subheader("An interactive dashboard to explore Miami real estate data")
+
+    # — Quick map of sample properties —
+    st.write("### 📍 Sample Property Locations")
+    st.map(df[["LATITUDE", "LONGITUDE"]].dropna().sample(200))
+
+    st.markdown("---")
+
+    # — Feature cards —
+    st.write("## 🔍 Explore Features")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("### 🏘️ Neighborhood Quality Index")
+        st.write("Composite score of property size, price & proximity to amenities.")
+    with col2:
+        st.markdown("### 📈 Market Value Analysis")
+        st.write("How living area, land size & structure quality drive sale price.")
+
+    col3, col4 = st.columns(2)
+    with col3:
+        st.markdown("### 🏚️ Age Depreciation Trends")
+        st.write("See how property age buckets impact market value over time.")
+    with col4:
+        st.markdown("### 📅 Seasonality in Sales")
+        st.write("Monthly price trends, statistical tests & seasonal clustering.")
+
+    st.markdown("Use the menu on the left to select any analysis.")
+
 # --- Feature 1: Neighborhood Quality Index ---
-if option == "Neighborhood Quality Index":
+elif option == "Neighborhood Quality Index":
     st.header("📊 Neighborhood Quality Index (NQI)")
     st.write("This feature combines property size, price, and proximity to key amenities into a single Neighborhood Quality Index, and also explores how distance to amenities affects sale price.")
 
