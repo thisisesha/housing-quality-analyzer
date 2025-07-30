@@ -177,16 +177,16 @@ elif option == "Neighborhood Quality Index":
 
     # Altair bar chart
     st.subheader("📈 Bar Chart of Top 10 Clusters by NQI")
-    chart_data = region_nqi.head(10).assign(ClusterID=lambda d: d.RegionCluster + 1)
+    chart_data = region_nqi.sort_values(by="NQI", ascending=False).head(10)
     bar = (
-        alt.Chart(chart_data)
-        .mark_bar(color="#3182bd")
-        .encode(
-            x=alt.X("ClusterID:O", title="Region Cluster (1–10)"),
-            y=alt.Y("NQI:Q", title="Avg. NQI"),
-            tooltip=["ClusterID", "NQI"]
-        )
+    alt.Chart(chart_data)
+    .mark_bar(color="#3182bd")
+    .encode(
+        x=alt.X("RegionCluster:O", title="Region Cluster (0–9)"),
+        y=alt.Y("NQI:Q", title="Avg. NQI"),
+        tooltip=["RegionCluster", "NQI"]
     )
+)
     labels = bar.mark_text(dy=-5).encode(text="NQI:Q")
     st.altair_chart(bar + labels, use_container_width=True)
 
