@@ -26,7 +26,7 @@ st.sidebar.title("🏡 Housing Quality App")
 option = st.sidebar.radio("Select a feature:", [
     "Home",
     "Neighborhood Quality Index",
-    "Effects on Market Value",
+    "Effects on Market Value", 
     "Age-Related Depreciation Trends",
     "Seasonality in Property Sales"
 ])
