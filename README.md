@@ -23,7 +23,7 @@ An interactive Streamlit dashboard to explore real estate trends in Miami, FL. T
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/miami-housing-quality-analyzer.git
+git clone https://github.com/thisisesha/housing-quality-analyzer.git
 cd miami-housing-quality-analyzer
 ```
 
