@@ -20,7 +20,24 @@ def load_data():
     return df
 
 df = load_data()
+def normalize(col): return (col - col.min()) / (col.max() - col.min())
+def inv_norm(col): return 1 - normalize(col)
 
+df["price_inv_norm"]   = inv_norm(df["SALE_PRC"])
+df["land_norm"]        = normalize(df["LND_SQFOOT"])
+df["ocean_inv_norm"]   = inv_norm(df["OCEAN_DIST"])
+df["rail_inv_norm"]    = inv_norm(df["RAIL_DIST"])
+df["center_inv_norm"]  = inv_norm(df["CNTR_DIST"])
+df["highway_inv_norm"] = inv_norm(df["HWY_DIST"])
+
+df["NQI"] = (
+    0.25 * df["land_norm"] +
+    0.25 * df["price_inv_norm"] +
+    0.15 * df["ocean_inv_norm"] +
+    0.10 * df["rail_inv_norm"] +
+    0.15 * df["center_inv_norm"] +
+    0.10 * df["highway_inv_norm"]
+)
 # --- Sidebar navigation code ---
 st.sidebar.title("🏡 Housing Quality App")
 option = st.sidebar.radio("Select a feature:", [
@@ -110,7 +127,7 @@ elif option == "Neighborhood Quality Index":
     st.table(corr_df)
 
     # 3. Correlation heatmap
-    fig, ax = plt.subplots(figsize=(4, 4))
+    fig, ax = plt.subplots(figsize=(2.5, 2.5))
     corr_matrix = df_nqi[["SALE_PRC", "OCEAN_DIST", "HWY_DIST", "CNTR_DIST"]].corr()
     sns.heatmap(corr_matrix, annot=True, cmap="coolwarm", center=0, ax=ax)
     ax.set_title("Correlation: Sale Price ($) vs. Distances (m)")
@@ -227,21 +244,33 @@ elif option == "Effects on Market Value":
     st.header("📈 Effects of Property Characteristics on Market Value")
     st.write(
         "In this section, we explore how three key features—**total living area**, **land size**, "
-        "and **structure quality**—correlate with sale price, and build a regression model to "
+        "**structure quality** and **NQI**—correlate with sale price, and build a regression model to "
         "quantify their individual impacts."
     )
 
     # 1. Preparing and cleaning data
-    df_value = df.dropna(subset=["SALE_PRC", "TOT_LVG_AREA", "LND_SQFOOT", "structure_quality"])
-    X = df_value[["TOT_LVG_AREA", "LND_SQFOOT", "structure_quality"]]
+    df_value = df.dropna(subset=["SALE_PRC", "TOT_LVG_AREA", "LND_SQFOOT", "structure_quality", "NQI"])
+    X = df_value[["TOT_LVG_AREA", "LND_SQFOOT", "structure_quality", "NQI"]]
     y = df_value["SALE_PRC"]
 
     # 2. Correlation heatmap
-    st.subheader("🔗 Correlation Heatmap")
-    corr_matrix = df_value[["SALE_PRC", "TOT_LVG_AREA", "LND_SQFOOT", "structure_quality"]].corr()
-    fig_corr, ax = plt.subplots(figsize=(4, 4))
-    sns.heatmap(corr_matrix, annot=True, cmap="coolwarm", fmt=".2f", square=True, ax=ax)
-    ax.set_title("Correlation Matrix")
+    st.subheader("🔗 Correlation Heatmap (Including NQI)")
+    corr_matrix = df_value[[
+        "SALE_PRC", "TOT_LVG_AREA", "LND_SQFOOT", "structure_quality", "NQI"
+    ]].corr()
+
+    fig_corr, ax = plt.subplots(figsize=(3, 3))
+    sns.heatmap(
+        corr_matrix,
+        annot=True,
+        cmap="coolwarm",
+        fmt=".2f",
+        square=True,
+        ax=ax,
+        annot_kws={"size": 6},
+        cbar_kws={"shrink": 0.8}
+    )
+    ax.set_title("Correlation Matrix (with NQI)", fontsize=10)
     st.pyplot(fig_corr)
 
     # 3. Scatterplots
@@ -261,7 +290,16 @@ elif option == "Effects on Market Value":
             title=f"{label} vs Sale Price"
         )
         st.plotly_chart(fig_scatter, use_container_width=True)
-
+    st.subheader("🌇 NQI vs Sale Price")
+    fig_nqi = px.scatter(
+    df_value,
+    x="NQI", y="SALE_PRC",
+    trendline="ols",
+    trendline_color_override="red",
+    labels={"NQI": "Neighborhood Quality Index", "SALE_PRC": "Sale Price ($)"},
+    title="Neighborhood Quality Index vs Sale Price"
+    )
+    st.plotly_chart(fig_nqi, use_container_width=True)    
     # 4. Fit regression model
     st.subheader("📉 Multiple Linear Regression Results")
     model = LinearRegression()
@@ -270,17 +308,19 @@ elif option == "Effects on Market Value":
 
     # 5. Coefficients table
     feature_labels = {
-        "TOT_LVG_AREA": "Total Living Area (sq ft)",
-        "LND_SQFOOT": "Land Square Footage (sq ft)",
-        "structure_quality": "Structure Quality (rank)"
-    }
+    "TOT_LVG_AREA": "Total Living Area (sq ft)",
+    "LND_SQFOOT": "Land Square Footage (sq ft)",
+    "structure_quality": "Structure Quality (rank)",
+    "NQI": "Neighborhood Quality Index"
+}
     coef_df = pd.DataFrame({
         "Feature": [feature_labels[c] for c in X.columns],
         "Coefficient": model.coef_,
         "Interpretation": [
             f"Price increases by ${model.coef_[0]:,.2f} per sq ft living area",
             f"Price increases by ${model.coef_[1]:,.2f} per sq ft land",
-            f"Price increases by ${model.coef_[2]:,.2f} per quality point"
+            f"Price increases by ${model.coef_[2]:,.2f} per quality point",
+            f"Price increases by ${model.coef_[3]:,.2f} per unit of NQI"
         ]
     })
     st.dataframe(coef_df, use_container_width=True)
