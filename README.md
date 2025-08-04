@@ -1,6 +1,6 @@
 # 🏡 Miami Housing Quality Analyzer
 
-An interactive Streamlit dashboard to explore real estate trends in Miami, FL. This tool analyzes housing quality through multiple lenses: neighborhood desirability, market value factors, property age, and seasonality in home sales.
+This is an interactive Streamlit dashboard to explore real estate trends in Miami, FL. This tool analyzes housing quality through multiple lenses: neighborhood desirability, market value factors, property age, and seasonality in home sales.
 
 ## 📊 Features
 
