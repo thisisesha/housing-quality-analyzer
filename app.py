@@ -81,20 +81,21 @@ if option == "Home":
 
     st.markdown("Use the menu on the left to select any analysis.")
 
-        # --- Quick preview of global df with NQI ---
+    # --- Quick preview of global df with NQI ---
     st.subheader("🔎 Preview: Global DataFrame (first 100 rows)")
-    cols_to_show = [  # optional: show the most relevant columns first
+    cols_to_show = [  
         "SALE_PRC","LND_SQFOOT","TOT_LVG_AREA","structure_quality",
         "OCEAN_DIST","HWY_DIST","CNTR_DIST","RAIL_DIST",
         "LATITUDE","LONGITUDE","NQI"
     ]
     available_cols = [c for c in cols_to_show if c in df.columns]
+
     # show selected columns first (if present), then any remaining columns
     ordered_df = pd.concat([df[available_cols], df.drop(columns=available_cols, errors="ignore")], axis=1)
 
     st.dataframe(ordered_df.head(100), use_container_width=True)
 
-    # Optional: download
+    # Download dataframe option
     csv_all = ordered_df.to_csv(index=False).encode("utf-8")
     st.download_button(
     "⬇️ Download full dataset (with NQI)",
@@ -322,7 +323,8 @@ elif option == "Effects on Market Value":
     labels={"NQI": "Neighborhood Quality Index", "SALE_PRC": "Sale Price ($)"},
     title="Neighborhood Quality Index vs Sale Price"
     )
-    st.plotly_chart(fig_nqi, use_container_width=True)    
+    st.plotly_chart(fig_nqi, use_container_width=True)
+
     # 4. Fit regression model
     st.subheader("📉 Multiple Linear Regression Results")
     model = LinearRegression()
