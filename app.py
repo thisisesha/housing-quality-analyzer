@@ -81,6 +81,29 @@ if option == "Home":
 
     st.markdown("Use the menu on the left to select any analysis.")
 
+        # --- Quick preview of global df with NQI ---
+    st.subheader("🔎 Preview: Global DataFrame (first 100 rows)")
+    cols_to_show = [  # optional: show the most relevant columns first
+        "SALE_PRC","LND_SQFOOT","TOT_LVG_AREA","structure_quality",
+        "OCEAN_DIST","HWY_DIST","CNTR_DIST","RAIL_DIST",
+        "LATITUDE","LONGITUDE","NQI"
+    ]
+    available_cols = [c for c in cols_to_show if c in df.columns]
+    # show selected columns first (if present), then any remaining columns
+    ordered_df = pd.concat([df[available_cols], df.drop(columns=available_cols, errors="ignore")], axis=1)
+
+    st.dataframe(ordered_df.head(100), use_container_width=True)
+
+    # Optional: download
+    csv_all = ordered_df.to_csv(index=False).encode("utf-8")
+    st.download_button(
+    "⬇️ Download full dataset (with NQI)",
+    data=csv_all,
+    file_name="miami-housing-with-nqi.csv",
+    mime="text/csv"
+    )
+
+
 # --- Feature 1: Neighborhood Quality Index ---
 elif option == "Neighborhood Quality Index":
     st.header("📊 Neighborhood Quality Index (NQI)")
@@ -505,3 +528,4 @@ elif option == "Seasonality in Property Sales":
         st.success("Result: Sale prices **do vary significantly** across months.")
     else:
         st.info("Result: No significant difference in sale prices between months.")
+
