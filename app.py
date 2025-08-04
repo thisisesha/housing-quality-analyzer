@@ -267,7 +267,7 @@ elif option == "Neighborhood Quality Index":
 elif option == "Effects on Market Value":
     st.header("📈 Effects of Property Characteristics on Market Value")
     st.write(
-        "In this section, we explore how three key features—**total living area**, **land size**, "
+        "In this section, we explore how four key features—**total living area**, **land size**, "
         "**structure quality** and **NQI**—correlate with sale price, and build a regression model to "
         "quantify their individual impacts."
     )
